@@ -22,10 +22,32 @@ public class ResourceController
     private string ResourceControllerObjectName = "ResourcesController";
     private ResourceControllerObject m_ResourceControllerObject;
 
+    private string ResourceColorControllerObjectName = "ColorController";
+    private ResourceColorControllerObject m_ResourceColorControllerObject;
+
+    private string ResourceGameObjectControllerObjectName = "GameObjectController";
+    private ResourceGameObjectControllerObject m_ResourceGameObjectControllerObject;
+
+    private string ResourceGameplayControllerObjectName = "GamePlayController";
+    private ResourceGameplayControllerObject m_ResourceGameplayControllerObject;
     private void Init()
     {
         m_ResourceControllerObject = GameObject.Find(ResourceControllerObjectName).GetComponent<ResourceControllerObject>();
+        m_ResourceColorControllerObject = GameObject.Find(ResourceColorControllerObjectName).GetComponent<ResourceColorControllerObject>();
+        m_ResourceGameObjectControllerObject = GameObject.Find(ResourceGameObjectControllerObjectName).GetComponent<ResourceGameObjectControllerObject>();
+        m_ResourceGameplayControllerObject = GameObject.Find(ResourceGameplayControllerObjectName).GetComponent<ResourceGameplayControllerObject>();
+    }
 
+    //得到玩法配置
+    public ResourceGameplayControllerObject GetGamePlayDefine()
+    {
+        return m_ResourceGameplayControllerObject;
+    }
+
+    //得到颜色配置
+    public ResourceColorControllerObject GetColorDefine()
+    {
+        return m_ResourceColorControllerObject;
     }
 
     //得到棋子数量
@@ -35,11 +57,15 @@ public class ResourceController
     }
 
     //得到棋子资源
-    public Image GetChessmanByIndex(int index)
+    public Sprite GetChessmanByIndex(int index)
     {
         return m_ResourceControllerObject.ChessmanList[index];
     }
 
-
+    //得到棋子UIGameObject
+    public GameObject GetChessmanUIGameObject()
+    {
+        return m_ResourceGameObjectControllerObject.ChessmanGameObject;
+    }
 
 }

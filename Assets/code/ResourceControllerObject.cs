@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class ResourceControllerObject : MonoBehaviour
 {
     [Header("Æå×Ó×ÊÔ´")]
-    public List<Image> ChessmanList = new List<Image>();
+    public List<Sprite> ChessmanList = new List<Sprite>();
 
 
 }
