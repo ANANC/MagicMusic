@@ -68,4 +68,27 @@ public class ResourceController
         return m_ResourceGameObjectControllerObject.ChessmanGameObject;
     }
 
+    //得到音乐数量
+    public int GetMusicCount()
+    {
+        return m_ResourceControllerObject.AudioClipList.Count;
+    }
+
+    //得到音乐
+    public AudioClip GetMusicByIndex(int index)
+    {
+        return m_ResourceControllerObject.AudioClipList[index];
+    }
+
+    //得到音乐UI数量
+    public int GetMusicUICount()
+    {
+        return m_ResourceControllerObject.MusicArtList.Count;
+    }
+
+    //得到音乐UI资源
+    public Sprite GetMusicUIByIndex(int index)
+    {
+        return m_ResourceControllerObject.MusicArtList[index];
+    }
 }

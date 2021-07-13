@@ -7,13 +7,21 @@ public class ChessboardController
 {
     private ResourceGameplayControllerObject m_ResourceGameplayControllerObject;
     private ResourceColorControllerObject m_ResourceColorControllerObject;
+    private MusicController m_MusicController;
 
     private ChessboardControllerUtil ChessboarControllerUtil;
     private ChessboardFactory ChessboarFactory;
 
     private Chessboard Chessboard;
 
-    Dictionary<Chessman, Vector3> Chessman2NewLogicPositionDict;    //棋子对应的新位置
+    private List<Vector3> UpdateRoadPointList;              //更新路线的点
+    private Dictionary<Vector3,bool> UpdateRoadPointDict;  //更新路线的点
+
+    private List<Vector3> LastUpdateRoadPointList;
+    private Dictionary<Vector3, bool> LastUpdateRoadPointDict;
+
+
+    private Dictionary<Chessman, Vector3> Chessman2NewLogicPositionDict;    //棋子对应的新位置
     private List<Vector3> ArriveList;    //行走的路线
 
     public void Init()
@@ -21,12 +29,19 @@ public class ChessboardController
         Chessboard = new Chessboard();
         ArriveList = new List<Vector3>();
         Chessman2NewLogicPositionDict = new Dictionary<Chessman, Vector3>();
+        UpdateRoadPointList = new List<Vector3>();
+        UpdateRoadPointDict = new Dictionary<Vector3, bool>();
+        LastUpdateRoadPointList = new List<Vector3>();
+        LastUpdateRoadPointDict = new Dictionary<Vector3, bool>();
 
         ChessboarControllerUtil = new ChessboardControllerUtil();
         ChessboarControllerUtil.Init();
 
         ChessboarFactory = new ChessboardFactory();
         ChessboarFactory.Init();
+
+        m_MusicController = new MusicController();
+        m_MusicController.Init();
 
         m_ResourceGameplayControllerObject = ResourceController.Instance.GetGamePlayDefine();
         m_ResourceColorControllerObject = ResourceController.Instance.GetColorDefine();
@@ -50,9 +65,13 @@ public class ChessboardController
         Chessboard.CurLastColumnIndex = (int)chessboardSize.y - 1;
 
         ChessboarFactory.CreateBaseChessboard(ref Chessboard);
+        m_MusicController.CreateChessboardMusic(ref Chessboard);
 
-        RefreshRoad(Vector3.zero,true);
+        RefreshRoad(Vector3.zero,true,true);
+
+        Chessboard.EnableMove = false;
     }
+
 
     //刷新棋盘表现
     public void RefreshRenderChessboard()
@@ -164,7 +183,7 @@ public class ChessboardController
             Chessman chessman = enumerator.Current.Key;
             Vector3 newLogicPosition = enumerator.Current.Value;
 
-            Debug.Log("Change." + chessman.LogicPosition + "->" + newLogicPosition);
+            //Debug.Log("Change." + chessman.LogicPosition + "->" + newLogicPosition);
 
             //旧数据
             int chessmanRowIndex = (int)chessman.LogicPosition.x;
@@ -220,120 +239,206 @@ public class ChessboardController
         Chessboard.CurHandColumnIndex += -(int)speed.y;
         Chessboard.CurLastColumnIndex += -(int)speed.y;
 
-       Debug.Log( "ChangeCurRange."+ " speed:"+ speed + " CurHandRowIndex:" + Chessboard.CurHandRowIndex + " CurLastRowIndex:" + Chessboard.CurLastRowIndex + " CurHandColumnIndex:" + Chessboard.CurHandColumnIndex + " CurLastColumnIndex:" + Chessboard.CurLastColumnIndex);
+       //Debug.Log( "ChangeCurRange."+ " speed:"+ speed + " CurHandRowIndex:" + Chessboard.CurHandRowIndex + " CurLastRowIndex:" + Chessboard.CurLastRowIndex + " CurHandColumnIndex:" + Chessboard.CurHandColumnIndex + " CurLastColumnIndex:" + Chessboard.CurLastColumnIndex);
 
     }
 
-    public void RefreshRoad(Vector3 moveDirection, bool isCreate = false)
+    public void RefreshRoad(Vector3 moveDirection, bool creatForking, bool isCreate = false)
     {
+        Vector3 logicPosition = new Vector3();
+        Chessman chessman;
+
         if (isCreate)
         {
-            Vector3 firstRoad = GetCurArrivePoint();
+            logicPosition = GetCurArrivePoint();
 
-            Chessman chessman;
-            if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(firstRoad, out chessman))
+            if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
             {
-                Debug.LogError("CreateRoad Fail. " + firstRoad + " can not find chessman!");
+                Debug.LogError("CreateRoad Fail. " + logicPosition + " can not find chessman!");
                 return;
             }
 
             chessman.EnableArrive = true;
-            __CreateNewRoad(firstRoad);
 
+            UpdateRoadPointList.Add(logicPosition);
+            UpdateRoadPointDict.Add(logicPosition, moveDirection.x != 0);
         }
         else
         {
-            Vector3 logicPosition = new Vector3();
-            if (moveDirection.x != 0)
+            int xShifting = Chessboard.CurLastRowIndex - Chessboard.LastUpdateLastRowIndex;
+            for (int x = 0; x < xShifting; x++)
             {
-                int xShifting = Chessboard.CurLastRowIndex - Chessboard.LastUpdateLastRowIndex;
-                for (int x = 0; x < xShifting; x++)
+                logicPosition.x = Chessboard.LastUpdateLastRowIndex + x;
+                for (int y = Chessboard.CurHandColumnIndex; y <= Chessboard.CurLastColumnIndex; y++)
                 {
-                    logicPosition.x = Chessboard.LastUpdateLastRowIndex + x;
-                    for (int y = Chessboard.CurHandColumnIndex; y <= Chessboard.CurLastColumnIndex; y++)
+                    logicPosition.y = y;
+
+                    if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
                     {
-                        logicPosition.y = y;
+                        Debug.LogError("CreateRoad Fail. " + logicPosition + " can not find chessman!");
+                        continue;
+                    }
 
-                        Chessman chessman;
-                        if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
-                        {
-                            Debug.LogError("CreateRoad Fail. " + logicPosition + " can not find chessman!");
-                            continue;
-                        }
-
-                        if (chessman.EnableArrive)
-                        {
-                            __CreateNewRoad(logicPosition);
-                            break;
-                        }
+                    if (chessman.EnableArrive && !UpdateRoadPointDict.ContainsKey(logicPosition))
+                    {
+                        UpdateRoadPointList.Add(logicPosition);
+                        UpdateRoadPointDict.Add(logicPosition, true);
                     }
                 }
-                __UpdateLastRange();
             }
-            if (moveDirection.y != 0)
+
+            int yShifting = Mathf.Abs(Chessboard.CurLastColumnIndex - Chessboard.LastUpdateLastColumnIndex);
+            for (int y = 0; y < yShifting; y++)
             {
-                int yShifting = Mathf.Abs(Chessboard.CurLastColumnIndex - Chessboard.LastUpdateLastColumnIndex);
-                for (int y = 0; y < yShifting; y++)
+                logicPosition.y = Chessboard.CurLastColumnIndex - Chessboard.LastUpdateLastColumnIndex < 0 ? Chessboard.LastUpdateHandColumnIndex - y : Chessboard.LastUpdateLastColumnIndex + y;
+                for (int x = Chessboard.CurHandRowIndex; x <= Chessboard.CurLastRowIndex; x++)
                 {
-                    logicPosition.y = moveDirection.y > 0 ? Chessboard.LastUpdateHandColumnIndex - y : Chessboard.LastUpdateLastColumnIndex + y;
-                    for (int x = Chessboard.CurHandRowIndex; x <= Chessboard.CurLastRowIndex; x++)
+                    logicPosition.x = x;
+
+                    if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
                     {
-                        logicPosition.x = x;
+                        Debug.LogError("CreateRoad Fail. " + logicPosition + " can not find chessman!");
+                        continue;
+                    }
 
-                        Chessman chessman;
-                        if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
-                        {
-                            Debug.LogError("CreateRoad Fail. " + logicPosition + " can not find chessman!");
-                            continue;
-                        }
-
-                        if (chessman.EnableArrive)
-                        {
-                            __CreateNewRoad(logicPosition);
-                            break;
-                        }
+                    if (chessman.EnableArrive && !UpdateRoadPointDict.ContainsKey(logicPosition))
+                    {
+                        UpdateRoadPointList.Add(logicPosition);
+                        UpdateRoadPointDict.Add(logicPosition, false);
                     }
                 }
-                __UpdateLastRange();
             }
         }
 
+        for (int index = 0; index < LastUpdateRoadPointList.Count; index++)
+        {
+            logicPosition = LastUpdateRoadPointList[index];
+
+            if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(logicPosition, out chessman))
+            {
+                continue;
+            }
+
+            if (UpdateRoadPointDict.ContainsKey(logicPosition))
+            {
+                continue;
+            }
+
+            chessman.EnableArrive = true;
+
+            UpdateRoadPointList.Add(logicPosition);
+            UpdateRoadPointDict.Add(logicPosition, LastUpdateRoadPointDict[logicPosition]);
+        }
+
+        LastUpdateRoadPointList.Clear();
+        LastUpdateRoadPointDict.Clear();
+
+        float random = Random.value;
+
+        for (int index = 0; index < UpdateRoadPointList.Count; index++)
+        {
+            logicPosition = UpdateRoadPointList[index];
+
+            if(UpdateRoadPointList.Count > 4 && Random.value < 0.2f)
+            {
+                continue;
+            }
+
+            __CreateNewRoad(logicPosition, creatForking, random);
+
+            if (creatForking)
+            {
+                creatForking = false;
+            }
+
+            if (!creatForking)
+            {
+                random = Random.value;
+            }
+        }
+
+        UpdateRoadPointList.Clear();
+        UpdateRoadPointDict.Clear();
+
+        __UpdateLastRange();
     }
 
-    private Vector3 __CreateNewRoad(Vector3 current)
+    private void __CreateNewRoad(Vector3 current, bool creatForking, float random)
     {
+        Vector3 source = current;
         Chessman chessman;
         Vector3 next;
 
-        do
+        int updateCount = creatForking ? 2 : 1;
+
+        bool isX = random > 0.5f;
+
+        bool hasY = false;
+        float yRandom = random;
+
+        for (int index = 0; index < updateCount; index++)
         {
-            next = current;
-            
+            current = source;
 
-            bool isX = Random.value > 0.5f;
-            if (isX)
+            do
             {
-                next += Vector3.right;
-            }
-            else
+                next = current;
+
+                if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(next, out chessman))
+                {
+                    break;
+                }
+
+                chessman.EnableArrive = true;
+
+                if (isX)
+                {
+                    next += Vector3.right;
+                }
+                else
+                {
+                    if(!hasY)
+                    {
+                        yRandom = random;
+                        hasY = true;
+                    }
+                    else
+                    {
+                        random = yRandom;
+                    }
+
+                    int yDirection = random > 0.5f ? 1 : -1;
+                    next += Vector3.up * yDirection;
+                }
+
+                // Debug.Log("__CreateNewRoad." + current + "->" + next);
+
+                //不重复
+                if (UpdateRoadPointDict.ContainsKey(next))
+                {
+                    break;
+                }
+
+                if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(next, out chessman))
+                {
+                    break;
+                }
+
+                chessman.EnableArrive = true;
+
+                current = next;
+
+            } while (true);
+
+            hasY = false;
+            isX = !isX;
+
+            if (!LastUpdateRoadPointDict.ContainsKey(next) && !UpdateRoadPointDict.ContainsKey(next))
             {
-                int yDirection = Random.value > 0.5f ? 1 : -1;
-                next += Vector3.up * yDirection;
+                LastUpdateRoadPointList.Add(next);
+                LastUpdateRoadPointDict.Add(next, isX);
             }
-
-          //  Debug.Log("__CreateNewRoad." + current + "->" + next);
-
-            if (!Chessboard.LogicPosition2ChessmanDict.TryGetValue(next, out chessman))
-            {
-                break;
-            }
-            chessman.EnableArrive = true;
-
-            current = next;
-
-        } while (true);
-
-        return current;
+        }
     }
 
     //记录当前范围
@@ -387,5 +492,20 @@ public class ChessboardController
             return chessman;
         }
         return null;
+    }
+
+    public void StartMove()
+    {
+        Chessboard.EnableMove = true;
+    }
+
+    public void StopMove()
+    {
+        Chessboard.EnableMove = false;
+    }
+
+    public bool EnableMove()
+    {
+        return Chessboard.EnableMove;
     }
 }

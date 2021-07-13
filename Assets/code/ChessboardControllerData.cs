@@ -41,7 +41,7 @@ public class ChessboardControllerData
 
     public class MusicalNote
     {
-        public string MusicName;
+        public int MusicIndex;
         public float MusicTime;
 
         public MusicalNoteArt ArtInfo;
@@ -50,7 +50,7 @@ public class ChessboardControllerData
     public class MusicalNoteArt
     {
         public Vector3 ArtPosition;
-        public string ResourceName;
+        public int ResourceIndex;
         public Color TexColor;
     }
 
@@ -89,6 +89,6 @@ public class ChessboardControllerData
         public bool IsCreateActiveChessman;
         public bool IsCreateMusic;
 
-        public bool IsMove;
+        public bool EnableMove;
     }
 }
